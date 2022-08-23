@@ -1,0 +1,10 @@
+.flex {
+  display: flex;
+}
+
+.flex>div {
+  flex: 1;
+  margin: 0.5rem;
+  padding: 1rem;
+  background: #ccc;
+}
