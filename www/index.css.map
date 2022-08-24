@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/index.css"],
+  "sourcesContent": [".flex {\r\n  display: flex;\r\n}\r\n\r\n.flex>div {\r\n  flex: 1;\r\n  margin: 0.5rem;\r\n  padding: 1rem;\r\n  background: #ccc;\r\n}"],
+  "mappings": "AAAA,MACE,aAGF,UACE,OALF,0BAQE",
+  "names": []
+}

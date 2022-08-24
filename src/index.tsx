@@ -1,7 +1,4 @@
-/* @refresh reload */
-import { render } from 'solid-js/web';
+import { h } from "jsx-real-dom/src/lib/createelement";
+import App from "./App";
 
-import './index.css';
-import App from './App';
-
-render(() => <App />, document.getElementById('root'));
+document.getElementById("root")?.replaceChildren(<App />);

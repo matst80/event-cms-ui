@@ -1,0 +1,3 @@
+[submodule "jsx-real-dom"]
+	path = jsx-real-dom
+	url = git@github.com:hecs/jsx-real-dom.git
