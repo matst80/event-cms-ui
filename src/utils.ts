@@ -56,6 +56,17 @@ export const publishEvent = (source: string, eventName: string, data: any) => {
   }).then(eventsChanged);
 };
 
+export const sendStateTransform = (
+  source: string,
+  eventName: string,
+  code: string
+) => {
+  return fetch(`${baseUrl}transform/${source}/${eventName}`, {
+    method: "PUT",
+    body: code,
+  }).then(eventsChanged);
+};
+
 export function listen(fn) {
   return (...args) => {
     fn(...args);

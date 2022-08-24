@@ -5,6 +5,7 @@ import {
   fetchProjection,
   listen,
   publishEvent,
+  sendStateTransform,
 } from "./utils";
 
 function event(source) {
@@ -43,10 +44,15 @@ function ProjectionData({ source }) {
   );
 }
 
-function getFormData(form: HTMLFormElement) {
-  return Array.from(form).reduce((data, elm) => {
-    return elm.id && elm.value ? { ...data, [elm.id]: elm.value } : data;
-  }, {} as any);
+function getFormData({ target }: SubmitEvent) {
+  return target
+    ? Array.from(target as HTMLFormElement).reduce(
+        (data, elm: { id?: string; value?: string }) => {
+          return elm.id && elm.value ? { ...data, [elm.id]: elm.value } : data;
+        },
+        {} as any
+      )
+    : {};
 }
 
 function js(data) {
@@ -105,12 +111,18 @@ class Observable {
   }
 }
 
-const fromEvent = (elm, evt = "click") => {
+const fromEvent = (elm: HTMLElement, evt = "click") => {
   const obs = new Observable();
   elm.addEventListener(evt, (e) => {
     obs.push(e);
   });
   return obs;
+};
+
+const lnk = (obs: Observable) => (e: Event) => {
+  obs.push(e);
+  e.stopPropagation();
+  e.preventDefault();
 };
 
 const getTemplateIndex = (e) => templateData[e.target.selectedIndex];
@@ -120,33 +132,54 @@ const setDataToInputs = (data: any) =>
     ([key, value]) => (document.getElementById(key)!.value = value)
   );
 
+const sendEvent = new Observable().next(getFormData);
+
+const sendTransform = new Observable().next(getFormData);
+
+// const sendEventa = (e) => {
+//   console.log("send event!!!");
+//   e.stopPropagation();
+//   e.preventDefault();
+//   const { eventName, data } = getFormData(e.target);
+//   publishEvent(source, eventName, JSON.parse(data));
+//   return false;
+// };
+
 function App() {
-  const source = "jstest";
+  const source = location.hash ? location.hash.substring(1) : "jstest";
+  sendEvent.sub(({ eventName, data }) =>
+    publishEvent(source, eventName, JSON.parse(data))
+  );
+  sendTransform.sub(({ name, code }) => sendStateTransform(source, name, code));
   const templates = (select) => {
     fromEvent(select, "change").next(getTemplateIndex).sub(setDataToInputs);
     select.replaceChildren(
       ...templateData.map(({ eventName }) => <option>{eventName}</option>)
     );
   };
-  const sendEvent = (e) => {
-    console.log("send event!!!");
-    e.stopPropagation();
-    e.preventDefault();
-    const { eventName, data } = getFormData(e.target);
-    publishEvent(source, eventName, JSON.parse(data));
-    return false;
-  };
+
   return (
     <div>
       <header>
         <span>{source}</span>
       </header>
-      <form onsubmit={sendEvent}>
-        <select ref={templates}></select>
-        <input type="text" id="eventName" value="update"></input>
-        <textarea id="data" value='{"id":"a","plupp":4}'></textarea>
-        <button type="submit">Send</button>
-      </form>
+      <div class="flex">
+        <div>
+          <form onsubmit={lnk(sendEvent)}>
+            <select ref={templates}></select>
+            <input type="text" id="eventName" value="update"></input>
+            <textarea id="data" value='{"id":"a","plupp":4}'></textarea>
+            <button type="submit">Send</button>
+          </form>
+        </div>
+        <div>
+          <form onsubmit={lnk(sendTransform)}>
+            <input type="text" id="name" value="test"></input>
+            <textarea id="code" value="this.run = 1"></textarea>
+            <button type="submit">Send</button>
+          </form>
+        </div>
+      </div>
       <div class="flex">
         <ProjectionData source={source} />
 
