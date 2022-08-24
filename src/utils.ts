@@ -8,7 +8,10 @@ const pubsub = (listeners: ((data: any) => void)[] = []) => {
       });
     },
     sub: (fn) => {
-      listeners.push(fn);
+      if (listeners.indexOf(fn) === -1) {
+        console.trace("add", fn);
+        listeners.push(fn);
+      }
       return () => {
         listeners = listeners.filter((e) => e !== fn);
       };
@@ -19,9 +22,8 @@ const pubsub = (listeners: ((data: any) => void)[] = []) => {
 const dataChanged = pubsub();
 
 const triggerChange = (fn) => (data) => {
-  setTimeout(() => {
-    fn(data);
-  }, 0);
+  fn(data);
+
   return data;
 };
 
@@ -32,8 +34,10 @@ export const fetchEvents = (
 ): Promise<{ end: number; data: any[] }> =>
   fetch(baseUrl + "replay/" + source).then((d) => d.json());
 
-export const fetchProjection = (source: string): Promise<any> =>
-  fetch(baseUrl + source).then((d) => d.json());
+export const fetchProjection = (source: string): Promise<any> => {
+  console.log("do fetch projection");
+  return fetch(baseUrl + source).then((d) => d.json());
+};
 
 export const deleteEvent = (source: string, data: any) => {
   console.log(source, JSON.stringify(data));
@@ -55,6 +59,6 @@ export const publishEvent = (source: string, eventName: string, data: any) => {
 export function listen(fn) {
   return (...args) => {
     fn(...args);
-    dataChanged.sub(() => fn(...args));
+    dataChanged.sub((data) => fn(...args, data));
   };
 }

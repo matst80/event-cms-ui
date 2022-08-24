@@ -1,4 +1,3 @@
-import { useQuery, useState } from "jsx-real-dom";
 import { h } from "jsx-real-dom/src/lib/createelement";
 import {
   deleteEvent,
@@ -50,9 +49,87 @@ function getFormData(form: HTMLFormElement) {
   }, {} as any);
 }
 
+function js(data) {
+  return JSON.stringify(data, null, 2);
+}
+
+const templateData = [
+  { eventName: "update", data: js({ id: "a", name: "kalle" }) },
+  { eventName: "birthday", data: js({ id: "a" }) },
+  { eventName: "die", data: js({ id: "a" }) },
+  { eventName: "linkImage", data: js({ id: "a", image: "slask.png" }) },
+  {
+    eventName: "create",
+    data: js({ id: "e", name: "test", age: 0, shoeSize: 12 }),
+  },
+];
+
+class Observable {
+  #value: any[] = [];
+  #chain: ((any) => any)[] = [];
+  #subs: ((any) => void)[] = [];
+  constructor(current?) {
+    this.#handleValue(current);
+  }
+  push(data) {
+    this.#handleValue(data);
+    return this;
+  }
+  next(fn: (any) => any) {
+    this.#chain.push(fn);
+    return this;
+  }
+  sub(fn: (any) => void) {
+    this.#subs.push(fn);
+    return this;
+  }
+  #handleValue(data) {
+    if (data) {
+      let i = 0;
+      const nxt = (current) => {
+        if (i >= this.#chain.length) {
+          this.#subs.forEach((fn) => fn(current));
+          return;
+        }
+        const res = this.#chain[i++](current);
+        if (res instanceof Promise) {
+          res.then((asyncData) => {
+            nxt(asyncData || current);
+          });
+        } else {
+          nxt(res);
+        }
+      };
+      nxt(data);
+    }
+  }
+}
+
+const fromEvent = (elm, evt = "click") => {
+  const obs = new Observable();
+  elm.addEventListener(evt, (e) => {
+    obs.push(e);
+  });
+  return obs;
+};
+
+const getTemplateIndex = (e) => templateData[e.target.selectedIndex];
+
+const setDataToInputs = (data: any) =>
+  Object.entries(data).forEach(
+    ([key, value]) => (document.getElementById(key)!.value = value)
+  );
+
 function App() {
   const source = "jstest";
+  const templates = (select) => {
+    fromEvent(select, "change").next(getTemplateIndex).sub(setDataToInputs);
+    select.replaceChildren(
+      ...templateData.map(({ eventName }) => <option>{eventName}</option>)
+    );
+  };
   const sendEvent = (e) => {
+    console.log("send event!!!");
     e.stopPropagation();
     e.preventDefault();
     const { eventName, data } = getFormData(e.target);
@@ -65,6 +142,7 @@ function App() {
         <span>{source}</span>
       </header>
       <form onsubmit={sendEvent}>
+        <select ref={templates}></select>
         <input type="text" id="eventName" value="update"></input>
         <textarea id="data" value='{"id":"a","plupp":4}'></textarea>
         <button type="submit">Send</button>
