@@ -1,27 +1,11 @@
+import { pubsub } from "jsx-real-dom/src/lib/utils/pubsub";
+
 const baseUrl = "https://cms.tornberg.me/";
 const headers = {
   "content-type": "application/json",
 };
 
-const pubsub = (listeners: (<T>(data: T) => void)[] = []) => {
-  return {
-    pub: <T>(data: T) => {
-      listeners.forEach((fn) => {
-        fn(data);
-      });
-    },
-    sub: (fn: <T>(data: T) => void) => {
-      if (listeners.indexOf(fn) === -1) {
-        listeners.push(fn);
-      }
-      return () => {
-        listeners = listeners.filter((e) => e !== fn);
-      };
-    },
-  };
-};
-
-const dataChanged = pubsub();
+export const dataChanged = pubsub();
 
 // const delay =
 //   (time = 200) =>
@@ -33,30 +17,41 @@ const dataChanged = pubsub();
 //   return ()=>{}
 // }
 
-const triggerChange = (fn) => (data) => {
-  fn(data);
+export const eventsChanged = dataChanged.pub;
 
-  return data;
-};
-
-export const eventsChanged = triggerChange(dataChanged.pub);
-
-export const fetchEvents = (
-  source: string
-): Promise<{ end: number; data: any[] }> =>
+export const fetchEvents = ({
+  source,
+}: SourceType): Promise<{ end: number; data: any[] }> =>
   fetch(baseUrl + "replay/" + source).then((d) => d.json());
 
-export const fetchProjection = (source: string): Promise<any> => {
+export type Collection = {
+  end: number;
+  [key: string]: any;
+};
+
+export type SourceType = {
+  source: string;
+};
+
+export const fetchProjection = ({
+  source,
+}: SourceType): Promise<Collection> => {
   console.log("do fetch projection", source);
   return fetch(baseUrl + source).then((d) => d.json());
 };
 
-export const deleteEvent = (source: string, data: any) => {
-  console.log(source, JSON.stringify(data));
+export const deleteEventCommand = ({
+  source,
+  event,
+}: {
+  source: string;
+  event: any;
+}) => {
+  // console.log(source, JSON.stringify(data));
   return fetch(baseUrl + "replay/" + source, {
     method: "DELETE",
     headers,
-    body: JSON.stringify(data),
+    body: JSON.stringify(event),
   }).then(eventsChanged);
 };
 

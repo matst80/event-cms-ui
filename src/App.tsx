@@ -1,35 +1,66 @@
 import { h } from "jsx-real-dom/src/lib/createelement";
 import {
+  delay,
+  empty,
+  forkJoin,
   fromEvent,
   lnk,
   map,
   Observable,
+  of,
+  tap,
+  timer,
 } from "jsx-real-dom/src/lib/utils/observable";
 import {
-  deleteEvent,
+  dataChanged,
+  deleteEventCommand,
   fetchEvents,
   fetchProjection,
-  listen,
   publishEvent,
   sendStateTransform,
 } from "./utils";
 
-function event(source) {
-  return (event) => (
+type EventType = { eventName: string; id?: string; [key: string]: any };
+
+const sourceEvent = of(location.hash ? location.hash.substring(1) : "jstest");
+addEventListener(
+  "hashchange",
+  (e) => location.hash && sourceEvent.emit(location.hash.substring(1))
+);
+
+const lastChangeEvent = of(Date.now());
+const changeEvent = forkJoin({
+  source: sourceEvent,
+  lastChange: lastChangeEvent,
+}).pipe(delay(20));
+
+const triggerChange = (_: any) => lastChangeEvent.emit(Date.now());
+dataChanged.sub(triggerChange);
+const sendEvent = empty<SubmitEvent>();
+const sendTransform = empty<SubmitEvent>();
+const templateChange = empty<Event>();
+const selectedEvent = empty<EventType>();
+forkJoin({
+  source: sourceEvent,
+  event: selectedEvent,
+}).pipe(map(deleteEventCommand), tap(triggerChange));
+
+function Event(event: any) {
+  return (
     <div>
       <pre>{JSON.stringify(event, null, 2)}</pre>
-      <a onclick={() => deleteEvent(source, event)}>X</a>
+      <a onclick={() => selectedEvent.emit(event)}>X</a>
     </div>
   );
 }
 
-function EventList({ source }) {
-  const Event = event(source);
-  const loadEvents = listen((cnt) => {
-    fetchEvents(source).then(({ data }) => {
+function EventList() {
+  const loadEvents = (cnt) =>
+    changeEvent.next(map(fetchEvents)).subscribe(({ data }) => {
+      data.reverse();
       cnt.replaceChildren(...data.map(Event));
     });
-  });
+
   return (
     <div>
       <div ref={loadEvents}></div>
@@ -37,12 +68,13 @@ function EventList({ source }) {
   );
 }
 
-function ProjectionData({ source }) {
-  const loadProjection = listen((cnt) => {
-    fetchProjection(source).then((data) => {
-      cnt.innerHTML = JSON.stringify(data, null, 2);
+function ProjectionData() {
+  const loadProjection = (cnt) => {
+    changeEvent.next(map(fetchProjection)).subscribe((d) => {
+      cnt.innerHTML = JSON.stringify(d, null, 2);
     });
-  });
+  };
+
   return (
     <div>
       <pre ref={loadProjection}></pre>
@@ -85,23 +117,11 @@ const asInput = (id) =>
 const setDataToInputs = (data: { [key: string]: string }) =>
   Object.entries(data).forEach(([key, value]) => (asInput(key)!.value = value));
 
-const sendEvent = new Observable<SubmitEvent, SubmitEvent>();
-
-const sendTransform = new Observable<SubmitEvent, SubmitEvent>();
-
 function App() {
   const source = location.hash ? location.hash.substring(1) : "jstest";
   sendEvent.pipe(map(getFormData)).subscribe(publishEvent(source));
   sendTransform.pipe(map(getFormData)).subscribe(sendStateTransform(source));
-  sendEvent.subscribe(console.log);
-  const templates = (select) => {
-    fromEvent(select, "change")
-      .pipe(map(getTemplateIndex))
-      .subscribe(setDataToInputs);
-    select.replaceChildren(
-      ...templateData.map(({ eventName }) => <option>{eventName}</option>)
-    );
-  };
+  templateChange.pipe(map(getTemplateIndex)).subscribe(setDataToInputs);
 
   return (
     <div>
@@ -111,7 +131,11 @@ function App() {
       <div class="flex">
         <div>
           <form onsubmit={lnk(sendEvent)}>
-            <select ref={templates}></select>
+            <select onchange={lnk(templateChange)}>
+              {...templateData.map(({ eventName }) => (
+                <option>{eventName}</option>
+              ))}
+            </select>
             <input type="text" id="eventName" value="update"></input>
             <textarea id="data" value='{"id":"a","plupp":4}'></textarea>
             <button type="submit">Send</button>
@@ -126,9 +150,9 @@ function App() {
         </div>
       </div>
       <div class="flex">
-        <ProjectionData source={source} />
+        <ProjectionData />
 
-        <EventList source={source} />
+        <EventList />
       </div>
     </div>
   );
