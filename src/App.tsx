@@ -6,26 +6,21 @@ import {
   fromEvent,
   lnk,
   map,
-  Observable,
   of,
   tap,
-  timer,
 } from "jsx-real-dom/src/lib/utils/observable";
 import {
   dataChanged,
   deleteEventCommand,
+  EventType,
   fetchEvents,
   fetchProjection,
   publishEvent,
   sendStateTransform,
 } from "./utils";
 
-type EventType = { eventName: string; id?: string; [key: string]: any };
-
-const sourceEvent = of(location.hash ? location.hash.substring(1) : "jstest");
-addEventListener(
-  "hashchange",
-  (e) => location.hash && sourceEvent.emit(location.hash.substring(1))
+const sourceEvent = fromEvent(window, "hashchange", location.hash, (e) =>
+  e ? e.substring(1) : "jstest"
 );
 
 const lastChangeEvent = of(Date.now());
@@ -36,6 +31,7 @@ const changeEvent = forkJoin({
 
 const triggerChange = (_: any) => lastChangeEvent.emit(Date.now());
 dataChanged.sub(triggerChange);
+lastChangeEvent.subscribe((d) => console.log());
 const sendEvent = empty<SubmitEvent>();
 const sendTransform = empty<SubmitEvent>();
 const templateChange = empty<Event>();

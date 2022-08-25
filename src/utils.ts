@@ -18,10 +18,10 @@ export const dataChanged = pubsub();
 // }
 
 export const eventsChanged = dataChanged.pub;
-
+export type EventType = { eventName: string; id?: string; [key: string]: any };
 export const fetchEvents = ({
   source,
-}: SourceType): Promise<{ end: number; data: any[] }> =>
+}: SourceType): Promise<{ end: number; data: EventType[] }> =>
   fetch(baseUrl + "replay/" + source).then((d) => d.json());
 
 export type Collection = {
@@ -45,8 +45,8 @@ export const deleteEventCommand = ({
   event,
 }: {
   source: string;
-  event: any;
-}) => {
+  event: EventType;
+}): Promise<any> => {
   // console.log(source, JSON.stringify(data));
   return fetch(baseUrl + "replay/" + source, {
     method: "DELETE",
