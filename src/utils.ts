@@ -9,7 +9,6 @@ const pubsub = (listeners: ((data: any) => void)[] = []) => {
     },
     sub: (fn) => {
       if (listeners.indexOf(fn) === -1) {
-        console.trace("add", fn);
         listeners.push(fn);
       }
       return () => {
@@ -21,13 +20,23 @@ const pubsub = (listeners: ((data: any) => void)[] = []) => {
 
 const dataChanged = pubsub();
 
+// const delay =
+//   (time = 200) =>
+//   () =>
+//     new Promise((res) => setTimeout(res, time));
+
+// const debounce = (time=200) => {
+//   let timer =
+//   return ()=>{}
+// }
+
 const triggerChange = (fn) => (data) => {
   fn(data);
 
   return data;
 };
 
-const eventsChanged = triggerChange(dataChanged.pub);
+export const eventsChanged = triggerChange(dataChanged.pub);
 
 export const fetchEvents = (
   source: string
@@ -35,7 +44,7 @@ export const fetchEvents = (
   fetch(baseUrl + "replay/" + source).then((d) => d.json());
 
 export const fetchProjection = (source: string): Promise<any> => {
-  console.log("do fetch projection");
+  console.log("do fetch projection", source);
   return fetch(baseUrl + source).then((d) => d.json());
 };
 
@@ -56,16 +65,14 @@ export const publishEvent = (source: string, eventName: string, data: any) => {
   }).then(eventsChanged);
 };
 
-export const sendStateTransform = (
-  source: string,
-  eventName: string,
-  code: string
-) => {
-  return fetch(`${baseUrl}transform/${source}/${eventName}`, {
-    method: "PUT",
-    body: code,
-  }).then(eventsChanged);
-};
+export const sendStateTransform =
+  (source: string) =>
+  ({ name, code }: { eventName: string; code: string }) => {
+    return fetch(`${baseUrl}transform/${source}/${name}`, {
+      method: "PUT",
+      body: code,
+    }).then(eventsChanged);
+  };
 
 export function listen(fn) {
   return (...args) => {
