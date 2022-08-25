@@ -1,5 +1,11 @@
 import { h } from "jsx-real-dom/src/lib/createelement";
 import {
+  fromEvent,
+  lnk,
+  map,
+  Observable,
+} from "jsx-real-dom/src/lib/utils/observable";
+import {
   deleteEvent,
   fetchEvents,
   fetchProjection,
@@ -45,14 +51,15 @@ function ProjectionData({ source }) {
 }
 
 function getFormData({ target }: SubmitEvent) {
+  const base: { [key: string]: string } = {};
   return target
     ? Array.from(target as HTMLFormElement).reduce(
         (data, elm: { id?: string; value?: string }) => {
           return elm.id && elm.value ? { ...data, [elm.id]: elm.value } : data;
         },
-        {} as any
+        base
       )
-    : {};
+    : base;
 }
 
 function js(data) {
@@ -70,89 +77,27 @@ const templateData = [
   },
 ];
 
-class Observable {
-  #value: any[] = [];
-  #chain: ((any) => any)[] = [];
-  #subs: ((any) => void)[] = [];
-  constructor(current?) {
-    this.#handleValue(current);
-  }
-  push(data) {
-    this.#handleValue(data);
-    return this;
-  }
-  next(fn: (any) => any) {
-    this.#chain.push(fn);
-    return this;
-  }
-  sub(fn: (any) => void) {
-    this.#subs.push(fn);
-    return this;
-  }
-  #handleValue(data) {
-    if (data) {
-      let i = 0;
-      const nxt = (current) => {
-        if (i >= this.#chain.length) {
-          this.#subs.forEach((fn) => fn(current));
-          return;
-        }
-        const res = this.#chain[i++](current);
-        if (res instanceof Promise) {
-          res.then((asyncData) => {
-            nxt(asyncData || current);
-          });
-        } else {
-          nxt(res);
-        }
-      };
-      nxt(data);
-    }
-  }
-}
-
-const fromEvent = (elm: HTMLElement, evt = "click") => {
-  const obs = new Observable();
-  elm.addEventListener(evt, (e) => {
-    obs.push(e);
-  });
-  return obs;
-};
-
-const lnk = (obs: Observable) => (e: Event) => {
-  obs.push(e);
-  e.stopPropagation();
-  e.preventDefault();
-};
-
 const getTemplateIndex = (e) => templateData[e.target.selectedIndex];
 
-const setDataToInputs = (data: any) =>
-  Object.entries(data).forEach(
-    ([key, value]) => (document.getElementById(key)!.value = value)
-  );
+const asInput = (id) =>
+  document.getElementById(id) as (HTMLElement & { value?: string }) | null;
 
-const sendEvent = new Observable().next(getFormData);
+const setDataToInputs = (data: { [key: string]: string }) =>
+  Object.entries(data).forEach(([key, value]) => (asInput(key)!.value = value));
 
-const sendTransform = new Observable().next(getFormData);
+const sendEvent = new Observable<SubmitEvent, SubmitEvent>();
 
-// const sendEventa = (e) => {
-//   console.log("send event!!!");
-//   e.stopPropagation();
-//   e.preventDefault();
-//   const { eventName, data } = getFormData(e.target);
-//   publishEvent(source, eventName, JSON.parse(data));
-//   return false;
-// };
+const sendTransform = new Observable<SubmitEvent, SubmitEvent>();
 
 function App() {
   const source = location.hash ? location.hash.substring(1) : "jstest";
-  sendEvent.sub(({ eventName, data }) =>
-    publishEvent(source, eventName, JSON.parse(data))
-  );
-  sendTransform.sub(({ name, code }) => sendStateTransform(source, name, code));
+  sendEvent.pipe(map(getFormData)).subscribe(publishEvent(source));
+  sendTransform.pipe(map(getFormData)).subscribe(sendStateTransform(source));
+  sendEvent.subscribe(console.log);
   const templates = (select) => {
-    fromEvent(select, "change").next(getTemplateIndex).sub(setDataToInputs);
+    fromEvent(select, "change")
+      .pipe(map(getTemplateIndex))
+      .subscribe(setDataToInputs);
     select.replaceChildren(
       ...templateData.map(({ eventName }) => <option>{eventName}</option>)
     );

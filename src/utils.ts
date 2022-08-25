@@ -1,13 +1,16 @@
-const baseUrl = "http://localhost:3000/";
+const baseUrl = "https://cms.tornberg.me/";
+const headers = {
+  "content-type": "application/json",
+};
 
-const pubsub = (listeners: ((data: any) => void)[] = []) => {
+const pubsub = (listeners: (<T>(data: T) => void)[] = []) => {
   return {
-    pub: (data) => {
+    pub: <T>(data: T) => {
       listeners.forEach((fn) => {
         fn(data);
       });
     },
-    sub: (fn) => {
+    sub: (fn: <T>(data: T) => void) => {
       if (listeners.indexOf(fn) === -1) {
         listeners.push(fn);
       }
@@ -52,22 +55,25 @@ export const deleteEvent = (source: string, data: any) => {
   console.log(source, JSON.stringify(data));
   return fetch(baseUrl + "replay/" + source, {
     method: "DELETE",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(data),
   }).then(eventsChanged);
 };
 
-export const publishEvent = (source: string, eventName: string, data: any) => {
-  return fetch(baseUrl + source + "/" + eventName, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(data),
-  }).then(eventsChanged);
-};
+export const publishEvent =
+  (source: string) =>
+  ({ eventName, data }: { [key: string]: string }) => {
+    const body = JSON.stringify(JSON.parse(data));
+    return fetch(baseUrl + source + "/" + eventName, {
+      method: "POST",
+      headers,
+      body,
+    }).then(eventsChanged);
+  };
 
 export const sendStateTransform =
   (source: string) =>
-  ({ name, code }: { name: string; code: string }) => {
+  ({ name, code }: { [key: string]: string }) => {
     return fetch(`${baseUrl}transform/${source}/${name}`, {
       method: "PUT",
       body: code,
