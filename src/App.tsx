@@ -1,12 +1,73 @@
 import { h } from "jsx-real-dom/src/lib/createelement";
 import {
   deleteEvent,
+  eventsChanged,
   fetchEvents,
   fetchProjection,
   listen,
   publishEvent,
   sendStateTransform,
 } from "./utils";
+
+export class Observable {
+  #value: any;
+  #chain: ((any) => any)[] = [];
+  #subs: ((any) => void)[] = [];
+  constructor(current?) {
+    this.#handleValue(current);
+  }
+  push(data) {
+    this.#handleValue(data);
+    return this;
+  }
+  next(fn: (any) => any) {
+    this.#chain.push(fn);
+    return this;
+  }
+  sub(fn: (any) => void) {
+    this.#subs.push(fn);
+    if (this.#value !== undefined && this.#value !== null) {
+      console.log("value", this.#value);
+      fn(this.#value);
+    }
+    return this;
+  }
+  #handleValue(data) {
+    if (data) {
+      let i = 0;
+      const nxt = (current) => {
+        this.#value = current;
+        if (i >= this.#chain.length) {
+          this.#subs.forEach((fn) => fn(current));
+          return;
+        }
+        const res = this.#chain[i++](current);
+        if (res instanceof Promise) {
+          res.then((asyncData) => {
+            nxt(asyncData || current);
+          });
+        } else {
+          nxt(res);
+        }
+      };
+      nxt(data);
+    }
+  }
+}
+
+export const fromEvent = (elm: HTMLElement, evt = "click") => {
+  const obs = new Observable();
+  elm.addEventListener(evt, (e) => {
+    obs.push(e);
+  });
+  return obs;
+};
+
+export const linkEvent = (obs: Observable) => (e: Event) => {
+  obs.push(e);
+  e.stopPropagation();
+  e.preventDefault();
+};
 
 function event(source) {
   return (event) => (
@@ -70,61 +131,6 @@ const templateData = [
   },
 ];
 
-class Observable {
-  #value: any[] = [];
-  #chain: ((any) => any)[] = [];
-  #subs: ((any) => void)[] = [];
-  constructor(current?) {
-    this.#handleValue(current);
-  }
-  push(data) {
-    this.#handleValue(data);
-    return this;
-  }
-  next(fn: (any) => any) {
-    this.#chain.push(fn);
-    return this;
-  }
-  sub(fn: (any) => void) {
-    this.#subs.push(fn);
-    return this;
-  }
-  #handleValue(data) {
-    if (data) {
-      let i = 0;
-      const nxt = (current) => {
-        if (i >= this.#chain.length) {
-          this.#subs.forEach((fn) => fn(current));
-          return;
-        }
-        const res = this.#chain[i++](current);
-        if (res instanceof Promise) {
-          res.then((asyncData) => {
-            nxt(asyncData || current);
-          });
-        } else {
-          nxt(res);
-        }
-      };
-      nxt(data);
-    }
-  }
-}
-
-const fromEvent = (elm: HTMLElement, evt = "click") => {
-  const obs = new Observable();
-  elm.addEventListener(evt, (e) => {
-    obs.push(e);
-  });
-  return obs;
-};
-
-const lnk = (obs: Observable) => (e: Event) => {
-  obs.push(e);
-  e.stopPropagation();
-  e.preventDefault();
-};
-
 const getTemplateIndex = (e) => templateData[e.target.selectedIndex];
 
 const setDataToInputs = (data: any) =>
@@ -132,25 +138,29 @@ const setDataToInputs = (data: any) =>
     ([key, value]) => (document.getElementById(key)!.value = value)
   );
 
+const sourceListener = new Observable(location.hash)
+  .next((hash) => {
+    return location.hash ? location.hash.substring(1) : "jstest";
+  })
+  .sub(eventsChanged);
+
+addEventListener("hashchange", linkEvent(sourceListener));
+
 const sendEvent = new Observable().next(getFormData);
 
 const sendTransform = new Observable().next(getFormData);
 
-// const sendEventa = (e) => {
-//   console.log("send event!!!");
-//   e.stopPropagation();
-//   e.preventDefault();
-//   const { eventName, data } = getFormData(e.target);
-//   publishEvent(source, eventName, JSON.parse(data));
-//   return false;
-// };
-
 function App() {
-  const source = location.hash ? location.hash.substring(1) : "jstest";
+  let source = "jstest";
+  sourceListener.sub((s) => {
+    console.log("source", s);
+    source = s;
+  });
+  //const source = location.hash ? location.hash.substring(1) : "jstest";
   sendEvent.sub(({ eventName, data }) =>
     publishEvent(source, eventName, JSON.parse(data))
   );
-  sendTransform.sub(({ name, code }) => sendStateTransform(source, name, code));
+  sendTransform.sub(sendStateTransform(source));
   const templates = (select) => {
     fromEvent(select, "change").next(getTemplateIndex).sub(setDataToInputs);
     select.replaceChildren(
@@ -165,7 +175,7 @@ function App() {
       </header>
       <div class="flex">
         <div>
-          <form onsubmit={lnk(sendEvent)}>
+          <form onsubmit={linkEvent(sendEvent)}>
             <select ref={templates}></select>
             <input type="text" id="eventName" value="update"></input>
             <textarea id="data" value='{"id":"a","plupp":4}'></textarea>
@@ -173,7 +183,7 @@ function App() {
           </form>
         </div>
         <div>
-          <form onsubmit={lnk(sendTransform)}>
+          <form onsubmit={linkEvent(sendTransform)}>
             <input type="text" id="name" value="test"></input>
             <textarea id="code" value="this.run = 1"></textarea>
             <button type="submit">Send</button>
