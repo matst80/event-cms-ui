@@ -67,7 +67,7 @@ export const publishEvent = (source: string, eventName: string, data: any) => {
 
 export const sendStateTransform =
   (source: string) =>
-  ({ name, code }: { eventName: string; code: string }) => {
+  ({ name, code }: { name: string; code: string }) => {
     return fetch(`${baseUrl}transform/${source}/${name}`, {
       method: "PUT",
       body: code,
