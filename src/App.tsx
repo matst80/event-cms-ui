@@ -1,94 +1,80 @@
 import { h } from "jsx-real-dom/src/lib/createelement";
-import {
-  push,
-  delay,
-  empty,
-  forkJoin,
-  fromEvent,
-  lnk,
-  map,
-  of,
-} from "jsx-real-dom/src/lib/utils/observable";
+import { conditionalMerge } from "jsx-real-dom/src/lib/utils/mergeChildren";
+import { debounce, link, makeObservable } from "jsx-real-dom/src/lib/utils/obs";
 import {
   dataChanged,
   deleteEventCommand,
-  EventType,
   fetchEvents,
   fetchProjection,
   publishEvent,
-  PublishType,
   sendStateTransform,
 } from "./utils";
 
-const getSource = () => (location.hash ? location.hash.substring(1) : "jstest");
-const sourceEvent = of(getSource());
+type StateType = {
+  source: string;
+  lastChange: number;
+};
 
-addEventListener("hashchange", (e) => {
-  sourceEvent.emit(getSource());
+const getSource = () => (location.hash ? location.hash.substring(1) : "jstest");
+const [state, stateChanged] = makeObservable<StateType>({
+  source: getSource(),
+  lastChange: Date.now(),
 });
 
-const lastChangeEvent = of(Date.now());
-const changeEvent = forkJoin({
-  source: sourceEvent,
-  lastChange: lastChangeEvent,
-}).next<any>(delay(20));
+addEventListener("hashchange", () => {
+  state.source = getSource();
+});
 
-const triggerChange = () => lastChangeEvent.emit(Date.now());
-dataChanged.sub(triggerChange);
+dataChanged.sub(
+  debounce(() => {
+    state.lastChange = Date.now();
+  }, 20)
+);
 
-const sendEvent = empty<SubmitEvent>();
-const sendTransform = empty<SubmitEvent>();
-const templateChange = empty<Event>();
-const selectedEvent = empty<EventType>();
-forkJoin({
-  source: sourceEvent,
-  event: selectedEvent,
-})
-  .next(map(deleteEventCommand))
-  .subscribe(triggerChange);
-
-sourceEvent.next(push(lastChangeEvent)).subscribe(console.log);
-
-function Event(event: any) {
+function Event({ key, ...event }: any) {
   return (
-    <div>
+    <div data-key={key}>
       <pre>{JSON.stringify(event, null, 2)}</pre>
-      <a onclick={() => selectedEvent.emit(event)}>X</a>
+      <a onclick={() => deleteEventCommand({ ...state, event })}>X</a>
     </div>
   );
 }
 
+const getEventKey = (event: any, i: number) => {
+  return `${event.eventName}-${i}`;
+};
+
 function EventList() {
-  const loadEvents = (cnt) =>
-    changeEvent.next(map(fetchEvents)).subscribe(({ data }) => {
-      data.reverse();
-      cnt.replaceChildren(...data.map(Event));
+  const loadEvents = (data, cnt) =>
+    fetchEvents(data).then(({ data }) => {
+      const nodes = data.map((e, i) => ({ ...e, key: getEventKey(e, i) }));
+      conditionalMerge(Event, nodes, cnt, (el) => el.dataset.key);
     });
 
   return (
     <div>
-      <div ref={loadEvents}></div>
+      <div ref={link(stateChanged, loadEvents)} class="rev"></div>
     </div>
   );
 }
 
 function ProjectionData() {
-  const loadProjection = (cnt) => {
-    changeEvent.next(map(fetchProjection)).subscribe((d) => {
+  const loadProjection = (data: { source: string }, cnt: HTMLElement) => {
+    fetchProjection(data).then((d) => {
       cnt.innerHTML = JSON.stringify(d, null, 2);
     });
+
+    // changeEvent.next(map(fetchProjection)).subscribe((d) => {
+    //   cnt.innerHTML = JSON.stringify(d, null, 2);
+    // });
   };
 
   return (
     <div>
-      <pre ref={loadProjection}></pre>
+      <pre ref={link(stateChanged, loadProjection)}></pre>
     </div>
   );
 }
-
-const scrollEvent = fromEvent(window, "scroll")
-  .next(delay<Event>(200))
-  .subscribe(console.log);
 
 function getFormData<T extends { [key: string]: string }>({
   target,
@@ -127,23 +113,16 @@ const setDataToInputs = (data: { [key: string]: string }) =>
   Object.entries(data).forEach(([key, value]) => (asInput(key)!.value = value));
 
 function App() {
-  // const source = location.hash ? location.hash.substring(1) : "jstest";
-  sendEvent
-    .next(map(getFormData))
-    .next(push(sourceEvent))
-    .subscribe(publishEvent);
-  sendTransform
-    .next(map(getFormData))
-    .next(push(sourceEvent))
-    .subscribe(sendStateTransform);
-  templateChange.next(map(getTemplateIndex)).subscribe(setDataToInputs);
+  const sendEvent = (e) => publishEvent(getFormData(e), state.source);
+  const sendTemplate = (e) => sendStateTransform(getFormData(e), state.source);
+  const templateChange = (e) => setDataToInputs(getTemplateIndex(e));
 
   return (
     <div>
       <div class="flex">
         <div>
-          <form onsubmit={lnk(sendEvent)}>
-            <select onchange={lnk(templateChange)}>
+          <form onsubmit={sendEvent}>
+            <select onchange={templateChange}>
               {...templateData.map(({ eventName }) => (
                 <option>{eventName}</option>
               ))}
@@ -154,7 +133,7 @@ function App() {
           </form>
         </div>
         <div>
-          <form onsubmit={lnk(sendTransform)}>
+          <form onsubmit={sendTemplate}>
             <input type="text" id="name" value="test"></input>
             <textarea id="code" value="this.run = 1"></textarea>
             <button type="submit">Send</button>

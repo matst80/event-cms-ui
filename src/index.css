@@ -8,3 +8,8 @@
   padding: 1rem;
   background: #ccc;
 }
+
+.rev {
+  display: flex;
+  flex-direction: column-reverse;
+}

@@ -60,10 +60,10 @@ export type PublishType = {
   data?: string;
 };
 
-export const publishEvent = ([{ eventName, data }, source]: [
-  PublishType,
-  string
-]) => {
+export const publishEvent = (
+  { eventName, data }: { eventName?: string; data?: string },
+  source: string
+) => {
   if (data && eventName) {
     const body = JSON.stringify(JSON.parse(data));
     return fetch(baseUrl + source + "/" + eventName, {
@@ -75,10 +75,10 @@ export const publishEvent = ([{ eventName, data }, source]: [
   return Promise.reject();
 };
 
-export const sendStateTransform = ([{ name, code }, source]: [
-  { name?: string; code?: string },
-  string
-]) => {
+export const sendStateTransform = (
+  { name, code }: { name?: string; code?: string },
+  source: string
+) => {
   return fetch(`${baseUrl}transform/${source}/${name}`, {
     method: "PUT",
     body: code,

@@ -1,1 +1,15 @@
-.flex{display:flex}.flex>div{flex:1;margin:.5rem;padding:1rem;background:#ccc}
+.flex {
+	display: flex
+}
+
+.flex>div {
+	flex: 1;
+	margin: .5rem;
+	padding: 1rem;
+	background: #ccc
+}
+
+.rev {
+	display: flex;
+	flex-direction: column-reverse;
+}
