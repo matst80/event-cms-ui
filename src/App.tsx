@@ -1,9 +1,15 @@
 import { h } from "jsx-real-dom/src/lib/createelement";
 import { conditionalMerge } from "jsx-real-dom/src/lib/utils/mergeChildren";
-import { debounce, link, makeObservable } from "jsx-real-dom/src/lib/utils/obs";
+import {
+  debounce,
+  link,
+  makeObservable,
+  preventDefault,
+} from "jsx-real-dom/src/lib/utils/obs";
 import {
   dataChanged,
   deleteEventCommand,
+  EventType,
   fetchEvents,
   fetchProjection,
   publishEvent,
@@ -33,40 +39,53 @@ dataChanged.sub(
 
 function Event({ key, ...event }: any) {
   return (
-    <div data-key={key}>
+    <div class="event" data-key={key}>
       <pre>{JSON.stringify(event, null, 2)}</pre>
-      <a onclick={() => deleteEventCommand({ ...state, event })}>X</a>
+      <a
+        class="button delete"
+        onclick={() => deleteEventCommand({ ...state, event })}
+      >
+        X
+      </a>
     </div>
   );
 }
+const getEventKey = (e: EventType, i: number) => ({
+  ...e,
+  key: `${e.eventName}-${i}`,
+});
 
-const getEventKey = (event: any, i: number) => {
-  return `${event.eventName}-${i}`;
-};
-
-function EventList() {
+export function EventList() {
   const loadEvents = (data, cnt) =>
-    fetchEvents(data).then(({ data }) => {
-      const nodes = data.map((e, i) => ({ ...e, key: getEventKey(e, i) }));
-      conditionalMerge(Event, nodes, cnt, (el) => el.dataset.key);
-    });
+    fetchEvents(data).then(({ data }) =>
+      conditionalMerge(
+        Event,
+        data.map(getEventKey),
+        cnt,
+        ({ dataset: { key } }) => key
+      )
+    );
 
   return (
     <div>
-      <div ref={link(stateChanged, loadEvents)} class="rev"></div>
+      <a
+        class="button delete"
+        onclick={preventDefault((e) => {
+          e.target.nextSibling.classList.toggle("rev");
+        })}
+      >
+        reverse
+      </a>
+      <div ref={link(stateChanged, loadEvents)} class="rev events"></div>
     </div>
   );
 }
 
-function ProjectionData() {
+export function ProjectionData() {
   const loadProjection = (data: { source: string }, cnt: HTMLElement) => {
     fetchProjection(data).then((d) => {
       cnt.innerHTML = JSON.stringify(d, null, 2);
     });
-
-    // changeEvent.next(map(fetchProjection)).subscribe((d) => {
-    //   cnt.innerHTML = JSON.stringify(d, null, 2);
-    // });
   };
 
   return (
@@ -104,7 +123,8 @@ const templateData = [
   },
 ];
 
-const getTemplateIndex = (e) => templateData[e.target.selectedIndex];
+const getTemplateIndex = ({ target: { selectedIndex } }) =>
+  templateData[selectedIndex];
 
 const asInput = (id) =>
   document.getElementById(id) as (HTMLElement & { value?: string }) | null;
@@ -112,41 +132,16 @@ const asInput = (id) =>
 const setDataToInputs = (data: { [key: string]: string }) =>
   Object.entries(data).forEach(([key, value]) => (asInput(key)!.value = value));
 
-function App() {
-  const sendEvent = (e) => publishEvent(getFormData(e), state.source);
-  const sendTemplate = (e) => sendStateTransform(getFormData(e), state.source);
-  const templateChange = (e) => setDataToInputs(getTemplateIndex(e));
+export const sendEvent = (e: SubmitEvent) =>
+  publishEvent(getFormData(e), state.source);
+export const sendTemplate = (e: SubmitEvent) =>
+  sendStateTransform(getFormData(e), state.source);
+const templateChange = (e) => setDataToInputs(getTemplateIndex(e));
 
+export const Template = () => {
   return (
-    <div>
-      <div class="flex">
-        <div>
-          <form onsubmit={sendEvent}>
-            <select onchange={templateChange}>
-              {...templateData.map(({ eventName }) => (
-                <option>{eventName}</option>
-              ))}
-            </select>
-            <input type="text" id="eventName" value="update"></input>
-            <textarea id="data" value='{"id":"a","plupp":4}'></textarea>
-            <button type="submit">Send</button>
-          </form>
-        </div>
-        <div>
-          <form onsubmit={sendTemplate}>
-            <input type="text" id="name" value="test"></input>
-            <textarea id="code" value="this.run = 1"></textarea>
-            <button type="submit">Send</button>
-          </form>
-        </div>
-      </div>
-      <div class="flex">
-        <ProjectionData />
-
-        <EventList />
-      </div>
-    </div>
+    <select onchange={templateChange}>
+      {...templateData.map(({ eventName }) => <option>{eventName}</option>)}
+    </select>
   );
-}
-
-export default App;
+};

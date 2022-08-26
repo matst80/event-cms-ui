@@ -1,18 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="shortcut icon" href="#" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Slask App</title>
+    <style>
+      .flex {
+        display: flex;
+      }
 
-<head>
-	<meta charset="utf-8" />
-	<link rel="shortcut icon" href="#" />
-	<meta name="viewport" content="width=device-width,initial-scale=1" />
-	<title>Slask App</title>
-	<link href="main.css" rel="stylesheet" />
-</head>
+      .flex > div {
+        flex: 1;
+        margin: 0.5rem;
+        padding: 1rem;
+      }
 
-<body>
-	<noscript>You need to enable JavaScript to run this app.</noscript>
-	<div id="root"></div>
-	<script src="index.js"></script>
-</body>
+      pre {
+        padding: 1rem;
+        border-radius: 1rem;
+        background-color: #333;
+        color: #fdfdfd;
+      }
 
+      .rev {
+        display: flex;
+        flex-direction: column-reverse;
+      }
+
+      .event {
+        position: relative;
+      }
+
+      .button {
+        cursor: pointer;
+        background-color: aquamarine;
+        border: solid 3px aquamarine;
+        border-radius: 3px;
+      }
+
+      .button:hover {
+        border-color: aqua;
+      }
+
+      .event .delete {
+        position: absolute;
+        top: 0;
+        right: -1rem;
+        width: 2rem;
+        line-height: 2rem;
+        text-align: center;
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div>
+      <div class="flex">
+        <div>
+          <form id="form-event">
+            <select id="template">
+              <option>update</option>
+              <option>birthday</option>
+              <option>die</option>
+              <option>linkImage</option>
+              <option>create</option></select
+            ><input type="text" id="eventName" value="update" /><textarea
+              id="data"
+              value='{"id":"a","plupp":4}'
+            ></textarea
+            ><button type="submit">Send</button>
+          </form>
+        </div>
+        <div>
+          <form id="from-tranform">
+            <input type="text" id="name" value="test" /><textarea
+              id="code"
+              value="this.run = 1"
+            ></textarea
+            ><button type="submit">Send</button>
+          </form>
+        </div>
+      </div>
+      <div class="flex" id="root">
+        <div id="projection"></div>
+        <div id="events"></div>
+      </div>
+    </div>
+    <script src="index.js"></script>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+  </body>
 </html>
