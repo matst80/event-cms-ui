@@ -30,7 +30,7 @@ export type Collection = {
 };
 
 export type SourceType = {
-  source: string;
+  source?: string;
 };
 
 export const fetchProjection = ({
@@ -55,29 +55,39 @@ export const deleteEventCommand = ({
   }).then(eventsChanged);
 };
 
-export const publishEvent =
-  (source: string) =>
-  ({ eventName, data }: { [key: string]: string }) => {
+export type PublishType = {
+  eventName?: string;
+  data?: string;
+};
+
+export const publishEvent = ([{ eventName, data }, source]: [
+  PublishType,
+  string
+]) => {
+  if (data && eventName) {
     const body = JSON.stringify(JSON.parse(data));
     return fetch(baseUrl + source + "/" + eventName, {
       method: "POST",
       headers,
       body,
     }).then(eventsChanged);
-  };
+  }
+  return Promise.reject();
+};
 
-export const sendStateTransform =
-  (source: string) =>
-  ({ name, code }: { [key: string]: string }) => {
-    return fetch(`${baseUrl}transform/${source}/${name}`, {
-      method: "PUT",
-      body: code,
-    }).then(eventsChanged);
-  };
+export const sendStateTransform = ([{ name, code }, source]: [
+  { name?: string; code?: string },
+  string
+]) => {
+  return fetch(`${baseUrl}transform/${source}/${name}`, {
+    method: "PUT",
+    body: code,
+  }).then(eventsChanged);
+};
 
-export function listen(fn) {
-  return (...args) => {
-    fn(...args);
-    dataChanged.sub((data) => fn(...args, data));
-  };
-}
+// export function listen(fn) {
+//   return (...args) => {
+//     fn(...args);
+//     dataChanged.sub((data) => fn(...args, data));
+//   };
+// }
